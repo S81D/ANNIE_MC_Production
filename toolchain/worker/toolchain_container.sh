@@ -1,52 +1,21 @@
 #!/bin/bash
-# Steven Doran
+# Runs inside the toolanalysis image: run the configured toolchain over one WCSim + GENIE file.
+# Steven Doran; restructured for mcprod.
+LOG="${WORKDIR}/toolchain_${MC_run}.log"
+cd "${MC_ta_folder}"
 
-RUN=$1
+if [ -n "${MC_hook}" ]; then         # per-run config writer (default toolchain/hooks/config_GENIE.py)
+    cp "${WORKDIR}/${MC_hook}" "configfiles/${MC_toolchain}/"
+    ( cd "configfiles/${MC_toolchain}" && python3 "${MC_hook}" "${MC_run}" )
+    for cfg in LoadWCSimConfig PhaseIITreeMakerConfig; do
+        [ -f "configfiles/${MC_toolchain}/${cfg}" ] || continue
+        echo "---- ${cfg}" >> "${DUMMY}"
+        cat "configfiles/${MC_toolchain}/${cfg}" >> "${DUMMY}"
+    done
+fi
 
-# ****************************************************** #
-# adjust accordingly!
-TA_folder=NC_CC_Nov_6_2025
-TC_name=PMTWaveformSim
-# ****************************************************** #
-
-# logfile
-touch /srv/logfile_${RUN}.txt
-pwd >> /srv/logfile_${RUN}.txt
-ls -v >> /srv/logfile_${RUN}.txt
-echo "" >> /srv/logfile_${RUN}.txt
-
-# enter ToolAnalysis directory
-cd ${TA_folder}/
-
-# run config script (if needed)
-cd configfiles/${TC_name}
-python3 config_GENIE.py ${RUN}
-echo "PhaseIITreeMaker config:" >> /srv/logfile_${RUN}.txt
-echo "------------------------" >> /srv/logfile_${RUN}.txt
-cat PhaseIITreeMakerConfig >> /srv/logfile_${RUN}.txt
-echo "" >> /srv/logfile_${RUN}.txt
-echo "LoadWCSim config:" >> /srv/logfile_${RUN}.txt
-echo "-----------------" >> /srv/logfile_${RUN}.txt
-cat LoadWCSimConfig >> /srv/logfile_${RUN}.txt
-echo "" >> /srv/logfile_${RUN}.txt
-cd ../../
-
-# set up paths and libraries
 source Setup.sh
+./Analyse "configfiles/${MC_toolchain}/ToolChainConfig" > "${LOG}" 2>&1
 
-# Run the toolchain, and output verbose to log file
-./Analyse configfiles/${TC_name}/ToolChainConfig >> /srv/logfile_${RUN}.txt 2>&1 
-
-# log files
-echo "" >> /srv/logfile_${RUN}.txt
-echo "**************************************************" >> /srv/logfile_${RUN}.txt
-echo "" >> /srv/logfile_${RUN}.txt
-echo "ToolAnalysis directory contents:" >> /srv/logfile_${RUN}.txt
-ls -lrth >> /srv/logfile_${RUN}.txt
-
-# copy any produced files to /srv for extraction (*** change accordingly ***)
-cp tree.root /srv/MC_${RUN}.root
-
-# make sure any output files you want to keep are put in /srv or any subdirectory of /srv
-
-### END ###
+mv "${MC_output_file}" "${WORKDIR}/MC_${MC_run}.root"
+gzip -9 "${LOG}"

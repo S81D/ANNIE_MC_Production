@@ -1,4 +1,6 @@
 #! /usr/bin/env bash
+# Vendored from S81D/GENIE-v3-O16 @ 9961fa3 (annie/run_annie_genie.sh). Local changes, all marked [mcprod]:
+#   upstreamz -10 m in ANNIE-rock, default GDML annie_v07.gdml, --tank flag (untested), ZMIN comment.
 
 #============================================================
 
@@ -35,8 +37,9 @@ export TOPVOL=""
 # which parameter set in BNBFlux.xml to use
 # ANNIE-tank or ANNIE-rock (wider window)
 export FLXPSET="ANNIE-rock"
+export FLXFILES=/annie/data/flux/gsimple_bnb/gsimple_beammc_annie_*.root
 
-export GDML=./annie_v07.gdml
+export GDML=./annie_v07.gdml   # [mcprod] was annie_v04.gdml
 export UNITS="-L mm -D g_cm3"
 
 export GENLIST="" # equivalent to "Default"
@@ -98,6 +101,7 @@ Run a GENIE job
                               change TOPVOVL to WORLD_LV
                               use wider flux window
                               push back starting Z to -20m
+   --tank                  [mcprod] tank-only generation: no rock mode, ANNIE-tank flux window (UNTESTED)
 
    -v                      increase verbosity
    -h | --help             this output
@@ -116,7 +120,7 @@ process_args() {
   # longarg "::" means optional arg, if not supplied given as null string
   # use this for targfile lowth peanut
   TEMP=`getopt -n $0 -s bash -a \
-     --longoptions="help outdir: flux: xsec: run: nevt: exposure: pots: seed: gdml: topvol: tune: with-mec genlist: xsec-qual: fid: expand: rockbox:: rock helpfid" \
+     --longoptions="help outdir: flux: xsec: run: nevt: exposure: pots: seed: gdml: topvol: tune: with-mec genlist: xsec-qual: fid: expand: rockbox:: rock tank helpfid" \
      -o hvo:f:x:r:n:e:s:g:t:u:F:E:R:-: -- "$@" `
   eval set -- "${TEMP}"
   unset TEMP
@@ -147,6 +151,7 @@ process_args() {
                           if [ -z "$RFACTORS" ]; then RFACTORS=1; fi
                                                  shift  ;;
            --rock       ) export dorock=1;              ;;
+           --tank       ) export dorock=0;              ;;   # [mcprod]
       -*                ) echo "unknown flag $opt ($1)"
                           usage
                           ;;
@@ -196,7 +201,9 @@ process_args() {
   if [ $dorock -ne 0 ]; then
     TOPVOL="WORLD_LV"
     FLXPSET="ANNIE-rock"
-    ZMIN="-10"  # start at z = -20m  (given in geom units cm)
+    ZMIN="-10"  # [mcprod] rays start 10 m upstream; the driver reads -z in m (2026-07-11 timing fix)
+  else
+    FLXPSET="ANNIE-tank"  # [mcprod] --tank
   fi
 
   # show the defaults correctly now
@@ -394,7 +401,7 @@ cat <<EOF > $GNUMIFLUXXML
       <point coord="det"> -10, +12, 0 </point>
       <point coord="det"> +10, -10, 0 </point>
     </window>
-    <!-- move 10m upstream to start the neutrino ray -->
+    <!-- move 10m upstream to start the neutrino ray [mcprod: was 20m] -->
     <!-- not working w/ gevgen_numi: if -z flag not set then forces on flux window -->
     <!-- so use gevgen_numi -z -1000.0 for now -->
     <upstreamz> -10.0 </upstreamz>
