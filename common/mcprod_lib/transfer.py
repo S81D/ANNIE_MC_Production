@@ -72,6 +72,27 @@ def copy(cfg, todo):
     return failed
 
 
+def pot_outliers(files_dir, csv_dir, pattern):
+    """[(run, value)] whose pot_N.csv is missing, non-numeric or far from the median (read_MC_POT.sh sums blindly)."""
+    regex = stages.output_regex(pattern.replace("*", "{run}"))
+    values = {}
+    for entry in os.scandir(files_dir):
+        match = regex.match(entry.name)
+        if not match:
+            continue
+        run = int(match.group(1))
+        try:
+            with open(os.path.join(csv_dir, "pot_%d.csv" % run)) as handle:
+                values[run] = float(handle.read().split(",")[1])
+        except (OSError, IndexError, ValueError):
+            values[run] = None
+    good = sorted(v for v in values.values() if v and v > 0)
+    if not good:
+        return sorted(values.items())
+    median = good[len(good) // 2]
+    return sorted((r, v) for r, v in values.items() if not v or not 0.5 * median <= v <= 2 * median)
+
+
 def pot_summary(cfg, stage):
     """Run helpers/read_MC_POT.sh over the persistent files; write the summary next to them."""
     if stage == "genie":
@@ -81,6 +102,12 @@ def pot_summary(cfg, stage):
         files_dir = cfg["layout"]["toolchain"]["root"]
         csv_dir = cfg["toolchain"]["pot_input"] or cfg["layout"]["genie"]["pot"]
         pattern, out = "MC_*.root", cfg["layout"]["toolchain"]["pot_summary"]
+    bad = pot_outliers(files_dir, csv_dir, pattern)
+    if bad:
+        raise SystemExit("POT summary NOT written: %d suspicious pot_N.csv value(s) (missing, non-numeric, or outside "
+                         "0.5-2x the median, e.g. an extra digit), e.g. %s. Exact values: helpers/pot_from_ghep.py "
+                         "(reads the gtree weight of gntp.N.ghep.root); fix the CSVs, then ./mcprod pot."
+                         % (len(bad), bad[:10]))
     script = os.path.join(REPO, "helpers", "read_MC_POT.sh")
     proc = subprocess.run(["bash", script, files_dir, csv_dir, pattern], stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, universal_newlines=True)

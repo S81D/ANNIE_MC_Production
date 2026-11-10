@@ -38,4 +38,10 @@ Interactive equivalent:
 singularity shell -B /pnfs:/pnfs,/exp/annie/app/users/$USER/temp_directory:/tmp,/exp/annie/data:/exp/annie/data,/exp/annie/app:/exp/annie/app /cvmfs/singularity.opensciencegrid.org/anniesoft/toolanalysis:latest/
 ```
 
+**POT summary refused** (missing or garbled `pot_N.csv`, e.g. `e+171`): print the exact values from the ghep
+`gtree` weights, read-only, then write the fixed CSVs yourself:
+```
+singularity exec -B /pnfs:/pnfs,/exp/annie/app:/exp/annie/app /cvmfs/singularity.opensciencegrid.org/anniesoft/toolanalysis:latest/ bash -c 'unset PYTHONPATH; source /usr/local/bin/thisroot.sh; python3.8 helpers/pot_from_ghep.py <ghep_dir> <runs>'
+```
+
 **Logs**: `gunzip *.log.gz`.

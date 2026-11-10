@@ -22,7 +22,9 @@ instead of tens of ns). ⚠ `tank` is **untested**; anniedirt still runs afterwa
 **Worker** (`worker/genie_job.sh` → `genie_container.sh` → `run_annie_genie.sh`):
 1. stage the flux file, geometry and scripts; copy the spline from CVMFS; unpack the tarball (`tarball` mode);
 2. run `gevgen_fnal` (seed = run number in deterministic mode), then `gntpc` for the gst tree;
-3. write the POT from the log to `pot_N.csv`; gzip the log.
+3. write the POT to `pot_N.csv` from the ghep `gtree` weight, GENIE's own POT record. The log's normalization
+   line is only a cross-check in the dummy file, because PYTHIA6 output can be interleaved into it, losing the
+   line or adding digits (`e+171`). Gzip the log.
 
 `run_annie_genie.sh` is vendored from [S81D/GENIE-v3-O16](https://github.com/S81D/GENIE-v3-O16) (`annie/`); local
 changes are marked `[mcprod]`.
@@ -36,4 +38,6 @@ changes are marked `[mcprod]`.
 | `pot_N.csv` (`run,POT`) | `genie/POT` |
 | `gntp.N.ghep.log.gz`, `ANNIE-N.maxpl.xml`, `BNBFlux{N}.xml`, manifests | `genie/logs` |
 
-`mcprod copy … genie` also writes `genie/POT_summary.txt` (POT summed over the runs present).
+`mcprod copy … genie` also writes `genie/POT_summary.txt` (POT summed over the runs present). It refuses if any
+`pot_N.csv` is missing, non-numeric or far from the median; `helpers/pot_from_ghep.py` prints the exact values
+from the ghep files, also for older productions.

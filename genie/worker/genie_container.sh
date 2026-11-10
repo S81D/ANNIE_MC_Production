@@ -18,7 +18,19 @@ chmod +x run_annie_genie.sh
     -g "${MC_geometry}" --seed "${MC_seed}" ${VOLUME} --tune "${MC_tune}"
 
 gntpc -i "gntp.${MC_run}.ghep.root" -f gst -o "gntp.${MC_run}.gst.root"
-POT=$(grep "Normalization for generated sample" "gntp.${MC_run}.ghep.log" | awk '{print $6}')
+
+# POT: GENIE stores it as the gtree weight. The log's normalization line is only a cross-check: PYTHIA6
+# output can be interleaved into it (lost line, or extra digits such as e+171).
+POT_WEIGHT=$(root -l -b -q -e "TFile f(\"gntp.${MC_run}.ghep.root\"); TTree *t = (TTree*)f.Get(\"gtree\");
+    if (t) printf(\"POTWEIGHT %.6g\\n\", t->GetWeight());" 2>/dev/null | awk '/^POTWEIGHT/ {print $2}')
+POT_LOG=$(grep "Normalization for generated sample" "gntp.${MC_run}.ghep.log" | awk '{print $6}')
+if [ -n "${POT_WEIGHT}" ]; then
+    POT=${POT_WEIGHT}; SOURCE="gtree weight"
+else
+    POT=${POT_LOG}; SOURCE="log (gtree weight unreadable)"
+fi
+NOTE=""
+[ "${POT_LOG}" != "${POT_WEIGHT}" ] && NOTE=" [log and gtree weight differ]"
 echo "${MC_run},${POT}" > "pot_${MC_run}.csv"
-echo "POT for run ${MC_run}: ${POT}" >> "${DUMMY}"
+echo "POT for run ${MC_run}: ${POT} from ${SOURCE} (gtree weight: ${POT_WEIGHT:-none}, log: ${POT_LOG:-none})${NOTE}" >> "${DUMMY}"
 gzip -9 "gntp.${MC_run}.ghep.log"

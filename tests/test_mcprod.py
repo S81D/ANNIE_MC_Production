@@ -288,6 +288,21 @@ class PurgeGuardTests(Fixture):
         self.assertEqual(cli.cmd_purge(self.cfg, A()), 1)
 
 
+class PotGuardTests(unittest.TestCase):
+    def test_flags_missing_garbled_and_extra_digit(self):
+        tmp = tempfile.mkdtemp()
+        values = {1: "1.13e+17", 2: "1.12e+17", 3: "1.13339e+171", 4: "", 5: "1.11e+17"}
+        for run, pot in values.items():
+            touch(os.path.join(tmp, "mc", "MC_%d.root" % run))
+            touch(os.path.join(tmp, "csv", "pot_%d.csv" % run))
+            with open(os.path.join(tmp, "csv", "pot_%d.csv" % run), "w") as handle:
+                handle.write("%d,%s\n" % (run, pot))
+        touch(os.path.join(tmp, "mc", "MC_6.root"))                     # no csv at all
+        bad = transfer.pot_outliers(tmp + "/mc", tmp + "/csv", "MC_*.root")
+        self.assertEqual([r for r, _ in bad], [3, 4, 6])
+        subprocess.run(["rm", "-rf", tmp])
+
+
 class PotScriptTests(unittest.TestCase):
     def run_script(self, script, *args):
         return subprocess.run(["bash", script] + list(args), stdout=subprocess.PIPE, universal_newlines=True).stdout

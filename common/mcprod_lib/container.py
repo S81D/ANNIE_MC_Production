@@ -79,7 +79,8 @@ def validate(cfg, stage, test_runs):
             "--ref-dir", cfg["validation"]["reference_dir"], "--runs", ",".join(str(r) for r in test_runs),
             "--json", out]
     if stage == "genie":
-        args += ["--events", str(cfg["genie"]["events_per_job"]), "--volume", cfg["genie"]["volume"]]
+        args += ["--events", str(cfg["genie"]["events_per_job"]), "--volume", cfg["genie"]["volume"],
+                 "--geometry", cfg["paths"]["geometry"]]
     elif stage == "anniedirt":
         args += ["--events", str(cfg["anniedirt"]["events_per_job"]), "--volume", cfg["genie"]["volume"],
                  "--pot-dir", stages.scratch_dir(cfg, "genie", True)]

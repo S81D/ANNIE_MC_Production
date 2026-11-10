@@ -61,7 +61,7 @@ Long steps (submitting or copying ~4000 files) take hours: run them in `screen` 
 | `productions/` | one YAML per production (commit yours: it is the record of what was run) |
 | `genie/ anniedirt/ wcsim/ toolchain/` | stage README + worker scripts |
 | `common/` | geometry (`annie_v07.gdml`), shared worker functions, `mcprod` library |
-| `helpers/` | broken-file finder/deleter, POT summer |
+| `helpers/` | broken-file finder/deleter, POT summer, POT from ghep files |
 | `validation/` | `validate.py` (used by `mcprod validate`) |
 | `docs/` | workflow, configuration reference, troubleshooting |
 | `tests/` | `python3 -m unittest discover tests` (no grid needed) |

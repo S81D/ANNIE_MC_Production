@@ -9,6 +9,7 @@ import csv
 import glob
 import json
 import os
+import re
 import statistics
 
 import ROOT
@@ -80,6 +81,21 @@ def compare(report, name, test, ref, rel=None, absolute=None, unit="", caution=F
     tol = ("±%.0f %%" % (100 * rel)) if rel is not None else ("±%g" % absolute)
     message = "%.4g%s vs reference %.4g%s (tolerance %s)" % (test, unit, ref, unit, tol)
     report.add(YELLOW if bad else GREEN, name, ("CAUTION: " + message) if bad and caution else message)
+
+
+def world_half_lengths(gdml):
+    """Half-lengths (m) of the WORLD_S box in the GDML geometry, or None."""
+    try:
+        text = open(gdml).read()
+    except (OSError, TypeError):
+        return None
+    box = re.search(r'<box[^>]*name="WORLD_S"[^>]*>', text)
+    if not box:
+        return None
+    attrs = dict(re.findall(r'(\w+)="([^"]*)"', box.group(0)))
+    scale = {"mm": 1e-3, "cm": 1e-2, "m": 1.0}.get(attrs.get("lunit", "mm"), 1e-3)
+    return {"vtxx": float(attrs["x"]) * scale / 2, "vtxy": float(attrs["y"]) * scale / 2,
+            "vtxz": float(attrs["z"]) * scale / 2}
 
 
 def run_files(directory, template, runs):
@@ -163,6 +179,19 @@ def check_genie(report, a, runs):
     bad = [run for run, value in pots.items() if value is None or value <= 0]
     if bad:
         report.add(RED, "POT values", "missing or non-numeric POT for runs %s" % bad)
+    # GENIE stores the generated POT as the gtree weight: pot_N.csv must match it.
+    mismatch = []
+    for run, path in ghep.items():
+        handle = open_root(path)
+        tree = handle.Get("gtree") if handle else None
+        weight = tree.GetWeight() if tree else None
+        if weight and pots.get(run) and abs(pots[run] / weight - 1) > 1e-5:
+            mismatch.append((run, pots[run], weight))
+        elif weight and run in pots and not pots[run]:
+            mismatch.append((run, None, weight))
+    report.add(RED if mismatch else GREEN, "POT vs gtree weight",
+               ("pot_N.csv differs from the ghep gtree weight (run, csv, weight): %s" % mismatch[:5]) if mismatch
+               else "pot_N.csv matches the gtree weight in every run")
     ref_pots = [read_pot(p) for p in glob.glob(os.path.join(a.ref_dir, "pot_*.csv"))]
     ref_pots = [p for p in ref_pots if p]
     good = [v for v in pots.values() if v]
@@ -185,11 +214,14 @@ def check_genie(report, a, runs):
     for tgt, frac in sorted(ref["targets"].items(), key=lambda kv: -kv[1]):
         if frac >= 0.02:
             compare(report, "target %d fraction" % tgt, test["targets"].get(tgt, 0.0), frac, absolute=0.05)
-    if a.volume == "world":
-        far = [ax for ax in test["extent"] if test["extent"][ax][0] < ref["extent"][ax][0] - 1.0
-               or test["extent"][ax][1] > ref["extent"][ax][1] + 1.0]
-        report.add(YELLOW if far else GREEN, "vertex extent",
-                   ("outside the reference extent (±1 m) in %s" % far) if far else "within the reference extent")
+    half = world_half_lengths(a.geometry)
+    if a.volume == "world" and half:
+        # Extremes grow with sample size, so compare with the geometry, not with the reference files.
+        out = ["%s [%.2f, %.2f] m" % (ax, lo, hi) for ax, (lo, hi) in sorted(test["extent"].items())
+               if lo < -half[ax] - 0.01 or hi > half[ax] + 0.01]
+        report.add(RED if out else GREEN, "vertex extent",
+                   ("outside the world volume: %s" % out) if out else "inside the world volume (±%.1f, ±%.1f, ±%.1f m)"
+                   % (half["vtxx"], half["vtxy"], half["vtxz"]))
 
 
 def check_anniedirt(report, a, runs):
@@ -326,6 +358,7 @@ def main():
     p.add_argument("--json", help="write the result here")
     p.add_argument("--events", type=int, default=20000)
     p.add_argument("--volume", default="world")
+    p.add_argument("--geometry", help="GDML file (world-volume check)")
     p.add_argument("--outputs", default="both")
     p.add_argument("--pot-dir")
     p.add_argument("--dirt-dir")

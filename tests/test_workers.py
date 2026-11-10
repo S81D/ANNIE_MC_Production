@@ -18,7 +18,10 @@ STUBS = {
     "gevgen_fnal": '#!/bin/bash\necho "gevgen_fnal $*"\n[ -n "$FAIL" ] && exit 1\n'
                    'while [ $# -gt 0 ]; do case $1 in -r) run=$2;; -m) maxpl=${2#+};; esac; shift; done\n'
                    'echo ghep > gntp.$run.ghep.root; echo maxpl > $maxpl\n'
-                   'echo "Normalization for generated sample = 1.1e+17 POT"\n',
+                   'if [ -n "$GARBLE" ]; then echo "** Normalization for gen"; echo " ** PYTHIA banner **"; '
+                   'echo "erated sample:      1.12088e+17 POT * detector"; '
+                   'else echo "** Normalization for generated sample:      1.13339e+17${EXTRA} POT * detector"; fi\n',
+    "root": '#!/bin/bash\necho "POTWEIGHT ${STUB_WEIGHT-1.13339e+17}"\n',     # unset: default; empty: unreadable
     "gntpc": '#!/bin/bash\nwhile [ $# -gt 0 ]; do case $1 in -i) in=$2;; -o) out=$2;; esac; shift; done\n'
              '[ -f "$in" ] && echo gst > "$out"\n',
 }
@@ -120,7 +123,8 @@ class GenieWorker(Worker):
                      "ANNIE-5.maxpl.xml"):
             self.assertIn(name, self.outputs())
         with open(os.path.join(self.out, "pot_5.csv")) as handle:
-            self.assertEqual(handle.read().strip(), "5,1.1e+17")
+            self.assertEqual(handle.read().strip(), "5,1.13339e+17")
+        self.assertIn("from gtree weight (gtree weight: 1.13339e+17, log: 1.13339e+17)\n", self.dummy())
         log = self.ghep_log()
         for expected in ("-t WORLD_LV", "-z -10", "--seed 6", "gsimple_flux_5.root,ANNIE-rock",
                          "--cross-sections gxspl-FNALsmall.xml", "-g annie_v07.gdml", "--tune G18_10a_02_11a",
@@ -131,6 +135,26 @@ class GenieWorker(Worker):
         m = self.manifest()
         self.assertEqual((m["status"], m["seed"], m["run"]), ("ok", 6, 5))
         self.assertTrue(self.dummy().rstrip().endswith("DONE"))
+
+    def pot_case(self, env):
+        args = self.prepare()
+        env = dict(env, GENIE_SETUP=os.path.join(self.tmp, "setup_genie.sh"))
+        proc = self.run_job("genie", env, volume="world", **args)
+        self.assertEqual(proc.returncode, 0, proc.stdout[-3000:])
+        with open(os.path.join(self.out, "pot_5.csv")) as handle:
+            return handle.read().strip()
+
+    def test_pot_from_gtree_when_log_garbled(self):
+        self.assertEqual(self.pot_case({"GARBLE": "1", "STUB_WEIGHT": "1.12088e+17"}), "5,1.12088e+17")
+        self.assertIn("[log and gtree weight differ]", self.dummy())
+
+    def test_pot_from_gtree_when_log_has_extra_digit(self):
+        self.assertEqual(self.pot_case({"EXTRA": "1"}), "5,1.13339e+17")       # log says 1.13339e+171
+        self.assertIn("log: 1.13339e+171) [log and gtree weight differ]", self.dummy())
+
+    def test_pot_from_log_when_weight_unreadable(self):
+        self.assertEqual(self.pot_case({"STUB_WEIGHT": ""}), "5,1.13339e+17")
+        self.assertIn("from log (gtree weight unreadable)", self.dummy())
 
     def test_tank_mode(self):
         args = self.prepare()
