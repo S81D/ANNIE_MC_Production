@@ -81,7 +81,11 @@ lives on one gpvm. Renew Kerberos (`kinit -R`) for sessions longer than about a 
 
 ## Seeds
 
-`seeds.mode: deterministic` (default): GENIE seed = run, other stages = run + 1. Re-running a run reproduces it.
+`seeds.mode: deterministic` (default): GENIE seed = run, other stages = run + 1. A rerun starts identically, but
+GENIE runs on different worker nodes can diverge partway. In the 2026-11 tests, 3 of 10 reruns diverged after
+168–9805 of 20 000 events, while the seeds, the geometry scan and the earlier events were identical. The likely
+cause is floating-point differences between CPU types; the manifest records the CPU. It is statistically
+irrelevant: every run is a valid, independent sample. Bit-identical reruns are not guaranteed.
 `random`: seeds are drawn at submission, unique within the production, and recorded in the dummy file and manifest.
 For more statistics, use new run numbers (e.g. `runs.range: [100000, 103999]` with
 `genie.flux_index_offset: 100000`). Note that re-using a flux file re-uses its flux entries.

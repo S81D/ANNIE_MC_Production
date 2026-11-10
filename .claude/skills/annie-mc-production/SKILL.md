@@ -61,7 +61,8 @@ Run all four test stages first. Then the full production, one stage at a time, i
 
 ## Facts worth knowing
 
-- Seeds: deterministic = run (GENIE) or run + 1 (others); random = drawn at submission and recorded. For more
+- Seeds: deterministic = run (GENIE) or run + 1 (others); random = drawn at submission and recorded. Reruns on
+  other worker nodes can diverge partway (floating point; not a bug, not a bias). For more
   statistics, use new run numbers plus `genie.flux_index_offset`, not reruns of the same flux files.
 - Tank-volume GENIE is untested; recommend world.
 - ROOT checks run in the toolanalysis image with `python3.8` after `source /usr/local/bin/thisroot.sh`.

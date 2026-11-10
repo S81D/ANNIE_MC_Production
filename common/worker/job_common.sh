@@ -18,11 +18,14 @@ mc_start() {
     START=$(date +%s)
     SITE=${GLIDEIN_Site:-${GLIDEIN_ResourceName:-unknown}}
     IMAGE=$(readlink -f "${MC_container}")
+    CPU=$(awk -F': ' '/^model name/ {print $2; exit}' /proc/cpuinfo)
+    CPU_FLAGS=$(grep -m1 "^flags" /proc/cpuinfo | tr " " "\n" | grep -E "^(sse4_2|avx|avx2|fma|avx512f)$" | tr "\n" " ")
     FAILED=""
     mc_log "production ${MC_production}  stage ${MC_stage}  run ${MC_run}  test ${MC_test}"
     mc_log "job ${JOBID}  host $(hostname -f)  site ${SITE}  started $(date)"
     mc_log "seed ${MC_seed}  commit ${MC_commit}  config ${MC_config_sha}"
     mc_log "container ${MC_container} -> ${IMAGE}"
+    mc_log "cpu ${CPU} (${CPU_FLAGS% })"       # floating-point results can differ between CPU types
     mc_log "arguments: $*"
     mc_log "CONDOR_DIR_INPUT:"
     ls -lh "${CONDOR_DIR_INPUT}" >> "${DUMMY}"
@@ -119,6 +122,7 @@ mc_finish() {
 {"production": "${MC_production}", "stage": "${MC_stage}", "run": ${MC_run}, "test": ${MC_test},
  "status": "${state}", "reason": "${reason}", "jobid": "${JOBID}", "host": "$(hostname -f)", "site": "${SITE}",
  "seed": ${MC_seed}, "commit": "${MC_commit}", "config_sha": "${MC_config_sha}",
+ "cpu": "${CPU}", "cpu_flags": "${CPU_FLAGS% }",
  "container": "${MC_container}", "image": "${IMAGE}", "container_exit": ${CONTAINER_EXIT:-null},
  "started": ${START}, "wall_s": ${wall},
  "peak_rss_mb": $(( peak_rss / 1024 )), "peak_disk_mb": $(( peak_disk / 1024 )), "cgroup_peak_mb": "$(mc_cgroup_peak_mb)",
