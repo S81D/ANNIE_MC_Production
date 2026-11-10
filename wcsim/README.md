@@ -1,16 +1,28 @@
-# grid_wcsim
-Submitting WCSim grid jobs for GENIE samples. Currently designed for WORLD samples (1 GENIE + 1 Flux file per job).
+# WCSim stage
 
-## Details and Usage
+Simulates the detector response to each run's GENIE + anniedirt events
+([ANNIEsoft/WCSim](https://github.com/ANNIEsoft/WCSim), wcsim image). One job per run.
 
-- For `WCSim.mac`, please enable: `/mygen/generator beam` for the event action.
-- The GENIE sanples contain 20k events - set `/run/beamOn 20000` to run over all events. Note that the WORLD GENIE samples will only contain ~600 events per file due to most events never having a FS particle make it to the detector to simulate in WCSim. For the tank samples, it is more complicated due to the observed "stripiness".
-- In `primaries_directory.mac`, specify a local path for the GENIE + flux files:
+**Tarball** (`./mcprod tarball X.yaml wcsim`, from `wcsim.source_dir`, which contains `WCSim/`). Set it up first:
+- `WCSim.mac`: `/mygen/generator beam`, and `/run/beamOn 20000` to read every event;
+- `macros/primaries_directory.mac`: `/mygen/neutrinosdirectory ./gntp.*.ghep.root` and
+  `/mygen/primariesdirectory ./annie_tank_flux.*.root`;
+- `geniedirectory.txt`, `dirtdirectory.txt`: `./`;
+- `build/sourceme`: added from `wcsim/sourceme` if missing.
 
-```
-/mygen/neutrinosdirectory ./gntp.*.ghep.root
-/mygen/primariesdirectory ./annie_tank_flux.*.root
-```
+**Worker** (`worker/wcsim_job.sh` → `wcsim_container.sh`):
+1. unpack WCSim and move the GENIE + dirt files into `WCSim/build`;
+2. append the seed to `macros/setRandomParameters.mac` (deterministic: run + 1), and copy the macros into the
+   dummy file;
+3. run `./WCSim WCSim.mac`; rename `wcsim_0.root` and `wcsim_lappd_0.root` to `_N`.
 
-- In `geniedirectory.txt` and `dirtdirectory.txt`, set the upstream directory path to: `./` (since you're running over files within the pwd on the grid node).
-- See the global `README` for more details.
+**Options**: `wcsim.outputs: both` (default) keeps the PMT and LAPPD files; `pmt` keeps the PMT file only.
+`keep_logs` and `keep_failed_logs` are off by default.
+
+**Outputs**
+
+| File | Persistent dir |
+|---|---|
+| `wcsim_N.root` | `wcsim/pmts` |
+| `wcsim_lappd_N.root` (about half the PMT size) | `wcsim/lappd` |
+| `wcsim_N.log.gz` (if kept), manifests | `wcsim/logs` |
