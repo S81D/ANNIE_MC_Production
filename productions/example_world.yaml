@@ -1,0 +1,41 @@
+# Example production: world (rock) events with the genie3 image's own GENIE.
+# Copy to productions/<name>.yaml and edit. Every key and default: docs/configuration.md
+
+production:
+  name: example_world_v1          # used in every output path; one name per production
+  user: null                      # null = $USER
+
+runs:
+  range: [0, 3999]                # one run per flux file (gsimple_flux_<run>.root)
+
+seeds:
+  mode: deterministic             # deterministic (from the run number) | random
+
+grid:
+  site: onsite                    # onsite (DEDICATED,OPPORTUNISTIC) | offsite (+ offsite_blacklist)
+
+paths:
+  scratch: /pnfs/annie/scratch/users/{user}/ANNIE_MC_Production/{production}
+  persistent: /pnfs/annie/persistent/users/{user}/{production}
+
+genie:
+  software: builtin               # builtin = the image's GENIE; tarball = your own build (example_custom_genie.yaml)
+  volume: world                   # world (tested) | tank (UNTESTED)
+  resources: {memory: 4000MB, disk: 10GB, lifetime: 4h}
+
+anniedirt:
+  resources: {memory: 4000MB, disk: 10GB, lifetime: 4h}
+
+wcsim:
+  source_dir: /exp/annie/app/users/{user}/WCSim_build          # folder that contains WCSim/
+  tarball: /pnfs/annie/scratch/users/{user}/tarballs/{production}_WCSim.tar.gz
+  outputs: both                   # both (PMT + LAPPD files) | pmt
+  resources: {memory: 4000MB, disk: 5GB, lifetime: 4h}
+
+toolchain:
+  source_dir: /exp/annie/app/users/{user}                      # folder that contains <ta_folder>/
+  ta_folder: MyToolAnalysis
+  toolchain: PMTWaveformSim       # configfiles/<toolchain>/ToolChainConfig
+  version: v1.0                   # output: <persistent>/MC_toolchain/v1.0
+  tarball: /pnfs/annie/scratch/users/{user}/tarballs/{production}_ToolAnalysis.tar.gz
+  resources: {memory: 4000MB, disk: 5GB, lifetime: 4h}
