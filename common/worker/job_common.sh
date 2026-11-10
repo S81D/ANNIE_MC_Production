@@ -26,6 +26,7 @@ mc_start() {
     mc_log "seed ${MC_seed}  commit ${MC_commit}  config ${MC_config_sha}"
     mc_log "container ${MC_container} -> ${IMAGE}"
     mc_log "cpu ${CPU} (${CPU_FLAGS% })"       # floating-point results can differ between CPU types
+    [ -n "${MC_tarball}" ] && mc_log "tarball ${MC_tarball}  md5 ${MC_tarball_md5:-unknown}"
     mc_log "arguments: $*"
     mc_log "CONDOR_DIR_INPUT:"
     ls -lh "${CONDOR_DIR_INPUT}" >> "${DUMMY}"
@@ -122,7 +123,7 @@ mc_finish() {
 {"production": "${MC_production}", "stage": "${MC_stage}", "run": ${MC_run}, "test": ${MC_test},
  "status": "${state}", "reason": "${reason}", "jobid": "${JOBID}", "host": "$(hostname -f)", "site": "${SITE}",
  "seed": ${MC_seed}, "commit": "${MC_commit}", "config_sha": "${MC_config_sha}",
- "cpu": "${CPU}", "cpu_flags": "${CPU_FLAGS% }",
+ "cpu": "${CPU}", "cpu_flags": "${CPU_FLAGS% }", "tarball": "${MC_tarball:-}", "tarball_md5": "${MC_tarball_md5:-}",
  "container": "${MC_container}", "image": "${IMAGE}", "container_exit": ${CONTAINER_EXIT:-null},
  "started": ${START}, "wall_s": ${wall},
  "peak_rss_mb": $(( peak_rss / 1024 )), "peak_disk_mb": $(( peak_disk / 1024 )), "cgroup_peak_mb": "$(mc_cgroup_peak_mb)",

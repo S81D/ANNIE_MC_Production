@@ -188,6 +188,15 @@ def cmd_submit(cfg, a):
     if missing:
         say("missing input(s): %s" % missing)
         return 1
+    tarballs, extra = [], {}
+    for path in attached:
+        if a.dry_run:
+            say("  tarball %s (md5 recorded at submission)" % path)
+            continue
+        info = tarball.fingerprint(cfg, path)
+        tarballs.append(info)
+        extra["tarball_md5"] = info["md5"]
+        say("  tarball %s  md5 %s  %.0f MB  (%s)" % (path, info["md5"], info["bytes"] / 1e6, info["built_by"]))
     outdir = stages.scratch_dir(cfg, stage, test)
     res = cfg[stage]["resources"]
     volume_mb = stages.MB_PER_RUN[stage] * len(candidates)
@@ -210,11 +219,14 @@ def cmd_submit(cfg, a):
             return 1
     os.makedirs(outdir, exist_ok=True)
     camp = records.start_campaign(cfg, stage, test, kind, candidates, len(expected), len(done_runs), commit)
+    camp["tarballs"] = tarballs
     n_ok = n_fail = 0
     try:
         for i, run in enumerate(candidates, 1):
+            args = stages.job_args(cfg, stage, run, seeds[run], test, commit)
+            args.update(extra)
             argv = grid.submit_argv(cfg, stage, staged + attached + stages.run_inputs(cfg, stage, run, test), outdir,
-                                    exe, stages.job_args(cfg, stage, run, seeds[run], test, commit))
+                                    exe, args)
             jobid, output = grid.submit(argv)
             records.record_job(camp, {"run": run, "seed": seeds[run], "jobid": jobid, "time": records.now(),
                                       "error": None if jobid else output[-1500:]})

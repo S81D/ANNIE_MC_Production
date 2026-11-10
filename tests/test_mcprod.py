@@ -288,6 +288,22 @@ class PurgeGuardTests(Fixture):
         self.assertEqual(cli.cmd_purge(self.cfg, A()), 1)
 
 
+class TarballFingerprintTests(Fixture):
+    def test_md5_cached_and_external_marked(self):
+        from mcprod_lib import tarball
+        path = os.path.join(self.tmp, "tar", "WCSim.tar.gz")
+        touch(path, 1000)
+        first = tarball.fingerprint(self.cfg, path)
+        self.assertEqual(first["md5"], __import__("hashlib").md5(b"x" * 1000).hexdigest())
+        self.assertTrue(first["built_by"].startswith("external"))
+        self.assertEqual(tarball.fingerprint(self.cfg, path)["md5"], first["md5"])       # from the cache
+        with open(path + ".provenance.json", "w") as handle:
+            json.dump({"source": "/src/WCSim", "md5": "different", "git": {"commit": "abcdef1234567"}}, handle)
+        built = tarball.fingerprint(self.cfg, path)["built_by"]
+        self.assertIn("/src/WCSim @ abcdef1234", built)
+        self.assertIn("WARNING", built)
+
+
 class PotGuardTests(unittest.TestCase):
     def test_flags_missing_garbled_and_extra_digit(self):
         tmp = tempfile.mkdtemp()

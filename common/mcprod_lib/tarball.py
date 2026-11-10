@@ -41,6 +41,37 @@ def _git_info(path):
                     "diff_md5": hashlib.md5(diff.encode()).hexdigest() if diff else None}}
 
 
+def fingerprint(cfg, path):
+    """md5 + build provenance of a tarball (mcprod-built or not). md5 cached by path, size and mtime."""
+    stat = os.stat(path)
+    cache_file = os.path.join(records.base_dir(cfg), "tarball_md5.json")
+    cache = {}
+    if os.path.exists(cache_file):
+        with open(cache_file) as handle:
+            cache = json.load(handle)
+    key = "%s|%d|%d" % (path, stat.st_size, int(stat.st_mtime))
+    if key not in cache:
+        records.say("computing md5 of %s (%.0f MB, once) ..." % (path, stat.st_size / 1e6))
+        md5 = hashlib.md5()
+        with open(path, "rb") as handle:
+            for block in iter(lambda: handle.read(1 << 22), b""):
+                md5.update(block)
+        cache[key] = md5.hexdigest()
+        os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+        with open(cache_file, "w") as handle:
+            json.dump(cache, handle, indent=1)
+    info = {"tarball": path, "md5": cache[key], "bytes": stat.st_size, "built_by": "external (not mcprod tarball)"}
+    sidecar = path + ".provenance.json"
+    if os.path.exists(sidecar):
+        with open(sidecar) as handle:
+            built = json.load(handle)
+        info["built_by"] = "mcprod tarball from %s%s" % (built.get("source"), (" @ " + built["git"]["commit"][:10])
+                                                         if built.get("git") else "")
+        if built.get("md5") and built["md5"] != info["md5"]:
+            info["built_by"] += " — WARNING: md5 differs from its provenance file"
+    return info
+
+
 def source_of(cfg, stage):
     """(parent dir, folder name inside the tarball, output path)."""
     c = cfg[stage]
