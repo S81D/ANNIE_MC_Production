@@ -4,9 +4,9 @@ Grid production of ANNIE simulation samples on FermiGrid: **GENIE → anniedirt 
 One YAML file describes a production; one command, `./mcprod`, submits, tracks, recovers, validates and
 transfers each stage.
 
-```
-gsimple_flux_N ─GENIE─▶ gntp.N.ghep.root ─anniedirt─▶ annie_tank_flux.N.root ─WCSim─▶ wcsim_N.root (+ wcsim_lappd_N.root) ─toolchain─▶ MC_N.root
-```
+![Overview: a BNB neutrino interacts in the rock (GENIE); Geant4 carries its muon through the rock to the tank
+(anniedirt); the FMV, tank and MRD response is simulated (WCSim); ToolAnalysis turns the hits into ntuples (MC
+toolchain). Below: each stage's output file and the mcprod steps.](docs/img/production_flow.svg)
 
 ## ⚠ Disk impact — read before running a production
 
@@ -71,7 +71,7 @@ Long steps (submitting or copying ~4000 files) take hours: run them in `screen` 
 | `common/` | geometry (`annie_v07.gdml`), shared worker functions, `mcprod` library |
 | `helpers/` | broken-file finder/deleter, POT summer, POT from ghep files |
 | `validation/` | `validate.py` (used by `mcprod validate`) |
-| `docs/` | workflow, configuration reference, troubleshooting |
+| `docs/` | workflow, configuration reference, troubleshooting, overview figure (`img/`) |
 | `tests/` | `python3 -m unittest discover tests` (no grid needed) |
 | `legacy/` | frozen MC-tuning workflows (AmBe, Michel, through-going muons) |
 | `records/` | local bookkeeping written by `mcprod` (not in git) |
@@ -84,3 +84,11 @@ The grid scripts for every stage were written and used for ANNIE MC production b
 AI (Claude, Anthropic) was used, under Steven Doran's direction and review, to compress and streamline them
 into one configuration-driven workflow, with shared worker code, tests and documentation. Physics settings
 (GENIE tune, flux, geometry, events per job) were not changed. The pre-AI version is tagged `pre-refactor`.
+
+**Validation.** The refactored workflow was tested on FermiGrid in November 2026 (production
+`refactor_validation_v2`). A 10-job test of each of the four stages was GREEN in `mcprod validate` against reference
+files from earlier ANNIE productions: GENIE POT per run, event content, vertex positions and times; anniedirt and
+WCSim events per file; toolchain tree entries within 20 % of the references and one trigger per WCSim event.
+`mcprod verify` found no broken files among the toolchain test outputs. Unit tests in `tests/` cover submission,
+bookkeeping and the worker scripts. Not yet exercised: a full 4000-run production, `copy` and `pot` on real output,
+tank-volume GENIE and offsite sites.
