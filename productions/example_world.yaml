@@ -35,7 +35,8 @@ wcsim:
 toolchain:
   source_dir: /exp/annie/app/users/{user}                      # folder that contains <ta_folder>/
   ta_folder: MyToolAnalysis
-  toolchain: PMTWaveformSim       # configfiles/<toolchain>/ToolChainConfig
+  toolchain: BeamClusterAnalysisMC   # configfiles/<toolchain>/ToolChainConfig
+  config_hook: toolchain/hooks/config_GENIE.py   # CC; NC: toolchain/hooks/config_GENIE_NC.py; tarball = its own copy
   version: v1.0                   # output: <persistent>/MC_toolchain/v1.0
   tarball: /pnfs/annie/scratch/users/{user}/tarballs/{production}_ToolAnalysis.tar.gz
   resources: {memory: 4000MB, disk: 5GB, lifetime: 4h}

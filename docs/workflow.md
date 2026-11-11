@@ -14,8 +14,10 @@ outputs for `--test`, its persistent copy otherwise.
 ## A. Set up (once per production)
 
 1. Choose the sample: `production.name`, runs (one per flux file, 0–3999), GENIE build, world volume.
-2. Check disk space (about 0.4 TB persistent for the full chain, plus scratch) and coordinate with the collaboration.
-3. On a gpvm:
+2. Edit the toolchain config script for your analysis (`toolchain/hooks/config_GENIE.py` for CC,
+   `config_GENIE_NC.py` for NC), or set `toolchain.config_hook: tarball`: see toolchain/README.md.
+3. Check disk space (about 0.4 TB persistent for the full chain, plus scratch) and coordinate with the collaboration.
+4. On a gpvm:
    ```
    kinit $USER@FNAL.GOV
    htgettoken -a htvaultprod.fnal.gov -i annie

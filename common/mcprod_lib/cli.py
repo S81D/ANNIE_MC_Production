@@ -98,6 +98,14 @@ def cmd_check(cfg, a):
             problems.append("%s not found: %s" % (label, path))
     if cfg["genie"]["volume"] == "tank":
         notes.append("CAUTION: tank-volume generation has never been tested; world (rock) generation is recommended")
+    hook, tc = cfg["toolchain"]["config_hook"], cfg["toolchain"]["toolchain"] or "<toolchain>"
+    if hook == config.HOOK_FROM_TARBALL:
+        notes.append("toolchain config script: the tarball's configfiles/%s/config_GENIE.py" % tc)
+    elif os.path.isfile(hook):
+        notes.append("toolchain config script: %s, copied into the tarball's configfiles/%s/ and run per job "
+                     "(edit it to match your analysis: toolchain/README.md)" % (os.path.relpath(hook, REPO), tc))
+    else:
+        problems.append("toolchain.config_hook %s not found" % hook)
     for line in notes:
         say("  note: " + line)
     for line in problems:
@@ -197,6 +205,15 @@ def cmd_submit(cfg, a):
         tarballs.append(info)
         extra["tarball_md5"] = info["md5"]
         say("  tarball %s  md5 %s  %.0f MB  (%s)" % (path, info["md5"], info["bytes"] / 1e6, info["built_by"]))
+    hook_info = None
+    if stage == "toolchain" and cfg["toolchain"]["config_hook"] != config.HOOK_FROM_TARBALL:
+        with open(cfg["toolchain"]["config_hook"], "rb") as handle:
+            hook_info = {"path": cfg["toolchain"]["config_hook"], "md5": hashlib.md5(handle.read()).hexdigest()}
+        say("  config script %s  md5 %s  (replaces the tarball's configfiles/%s/%s)" % (
+            os.path.relpath(hook_info["path"], REPO), hook_info["md5"], cfg["toolchain"]["toolchain"],
+            os.path.basename(hook_info["path"])))
+    elif stage == "toolchain":
+        say("  config script: the tarball's configfiles/%s/config_GENIE.py" % cfg["toolchain"]["toolchain"])
     outdir = stages.scratch_dir(cfg, stage, test)
     res = cfg[stage]["resources"]
     volume_mb = stages.MB_PER_RUN[stage] * len(candidates)
@@ -220,6 +237,8 @@ def cmd_submit(cfg, a):
     os.makedirs(outdir, exist_ok=True)
     camp = records.start_campaign(cfg, stage, test, kind, candidates, len(expected), len(done_runs), commit)
     camp["tarballs"] = tarballs
+    if hook_info:
+        camp["config_hook"] = hook_info
     n_ok = n_fail = 0
     try:
         for i, run in enumerate(candidates, 1):

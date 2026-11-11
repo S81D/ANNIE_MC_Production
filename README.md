@@ -34,7 +34,15 @@ cp productions/example_world.yaml productions/my_sample.yaml
 ./mcprod check productions/my_sample.yaml
 ```
 
-Edit `productions/my_sample.yaml` (name, runs, WCSim and ToolAnalysis sources) before `check`. Then follow
+Edit `productions/my_sample.yaml` (name, runs, WCSim and ToolAnalysis sources) before `check`.
+
+**MC toolchain users:** the toolchain stage sets up the tree maker (PhaseIITreeMaker) with a Python config script
+that is copied into your ToolAnalysis tarball and run in every job. Two versions are provided:
+`toolchain/hooks/config_GENIE.py` (CC, the default) and `toolchain/hooks/config_GENIE_NC.py` (NC). Edit the one you
+use to reflect your workflow, or set `toolchain.config_hook: tarball` to run the `config_GENIE.py` inside your
+tarball's toolchain folder instead. Details: [toolchain/README.md](toolchain/README.md).
+
+Then follow
 [docs/workflow.md](docs/workflow.md): test every stage, then run the full production stage by stage.
 **Launch a stage — test or full — only when the previous stage is DONE.** `mcprod` enforces this.
 

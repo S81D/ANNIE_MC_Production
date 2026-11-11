@@ -3,6 +3,7 @@ import os
 import re
 
 from . import REPO, STAGES
+from .config import HOOK_FROM_TARBALL
 
 PREVIOUS = {"genie": None, "anniedirt": "genie", "wcsim": "anniedirt", "toolchain": "wcsim"}
 
@@ -104,7 +105,7 @@ def static_files(cfg, stage):
         attached.append(cfg["wcsim"]["tarball"])
     elif stage == "toolchain":
         attached.append(cfg["toolchain"]["tarball"])
-        if cfg["toolchain"]["config_hook"]:
+        if cfg["toolchain"]["config_hook"] != HOOK_FROM_TARBALL:      # repo config script, copied into the tarball
             staged.append(cfg["toolchain"]["config_hook"])
     return staged, attached
 
@@ -135,7 +136,7 @@ def job_args(cfg, stage, run, seed, test, commit):
     elif stage == "toolchain":
         args.update(tarball=os.path.basename(c["tarball"]), ta_folder=c["ta_folder"], toolchain=c["toolchain"],
                     output_file=c["output_file"], attach_lappd=int(bool(c["attach_lappd"])),
-                    hook=os.path.basename(c["config_hook"]) if c["config_hook"] else "")
+                    hook=os.path.basename(c["config_hook"]))      # file name, or "tarball"
     return args
 
 

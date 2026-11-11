@@ -1,8 +1,5 @@
 import sys
 
-# this script will execute on the grid
-# it is used to populate the TreeMaker + LoadWCSim with the correct file names
-
 run = sys.argv[1]
 
 def LoadWCSim(run):
@@ -34,6 +31,7 @@ def PhaseIITreeMaker():
 
     file.write('verbose 0\n')
     file.write('OutputFile tree.root\n')
+    file.write('MRDRecoSource Both\n')    # Dylon
     file.write('TankClusterProcessing 1\n')
     file.write('MRDClusterProcessing 1\n')
     file.write('TriggerProcessing 1\n')
@@ -44,14 +42,17 @@ def PhaseIITreeMaker():
     file.write('fillCleanEventsOnly 0\n')
     file.write('MCTruth_fill 1\n')
     file.write('Reco_fill 1\n')
-    file.write('TankReco_fill 0\n')
-    file.write('RecoDebug_fill 0\n')
+    file.write('SimpleReco_fill 1\n')   # added for Andy
+    file.write('TankReco_fill 1\n')
+    file.write('RecoDebug_fill 1\n')
     file.write('muonTruthRecoDiff_fill 0\n')
     file.write('IsData 0\n')
-    file.write('PMTWaveformSim 1\n')
+    file.write('ApplyDeadMask 1\n')
+    file.write('IntGen 1\n')
+    file.write('Reweight_fill 1\n')     # Modify if re-weighting
+    file.write('PMTWaveformSim 0\n')
     file.write('HasBNBtimingMC 1\n')
-    file.write('HasGenie 1\n')
-    file.write('VertexLeastSquares 1')
+    file.write('VertexLeastSquares 0')
 
     file.close()
 

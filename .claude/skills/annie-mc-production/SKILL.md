@@ -52,7 +52,7 @@ Run all four test stages first. Then the full production, one stage at a time, i
   not worthwhile. A large or growing failure class (same exit or reason) needs a diagnosis, not resubmission.
 - `validate`: RED means stop. YELLOW: list each item for the user (e.g. a toolchain tree missing by design,
   another GENIE build than the references) and let them decide before `--accept`. Toolchain checks are cautions
-  only.
+  only, except files with no entries in any tree (RED: the tree-maker config doesn't match the toolchain).
 - `verify` stopping with "tree missing from the 3 largest files": the toolchain doesn't fill that tree. Propose
   a new `toolchain.verify_trees`; never purge in that state.
 - Held jobs: memory is auto-released with +4 GB grace; for disk or walltime, raise `resources`, remove the held
@@ -65,6 +65,10 @@ Run all four test stages first. Then the full production, one stage at a time, i
   other worker nodes can diverge partway (floating point; not a bug, not a bias). For more
   statistics, use new run numbers plus `genie.flux_index_offset`, not reruns of the same flux files.
 - Tank-volume GENIE is untested; recommend world.
+- Toolchain config script (`toolchain.config_hook`): the repo's `toolchain/hooks/config_GENIE.py` (CC, default) or
+  `config_GENIE_NC.py` (NC) is copied into the tarball, replacing its `config_GENIE.py`; `tarball` runs the tarball's
+  own. Before a toolchain test, confirm with the user which script, and that its PhaseIITreeMaker settings match
+  their toolchain. The dummy file says which script ran and whether it matched the tarball's copy.
 - ROOT checks run in the toolanalysis image with `python3.8` after `source /usr/local/bin/thisroot.sh`.
 - Records live in `records/<production>/` (not in git); `mcprod.log` has everything `mcprod` printed.
 - Troubleshooting: `docs/troubleshooting.md`.

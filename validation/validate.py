@@ -316,7 +316,7 @@ def check_toolchain(report, a, runs):
             for name in tree_names(handle):
                 ref_trees.add(name)
                 ref_entries.setdefault(name, []).append(entries(handle, name))
-    test_trees, test_entries, unreadable = set(), {}, []
+    test_trees, test_entries, unreadable, empty = set(), {}, [], []
     for run, path in files.items():
         handle = open_root(path)
         names = tree_names(handle) if handle else set()
@@ -324,10 +324,17 @@ def check_toolchain(report, a, runs):
             unreadable.append(run)
             continue
         test_trees |= names
-        for name in names:
-            test_entries.setdefault(name, []).append(entries(handle, name))
+        counts = {name: entries(handle, name) for name in names}
+        if not any(counts.values()):        # ~1400 WCSim events per file: an all-empty file is never physics
+            empty.append(run)
+        for name, n in counts.items():
+            test_entries.setdefault(name, []).append(n)
     if unreadable:
         report.add(RED, "MC file content", "unreadable or no TTrees: runs %s" % unreadable)
+    if empty:
+        report.add(RED, "MC file content", "no entries in any tree: runs %s. The tree maker never filled: check the "
+                   "toolchain config script against the tools in ToolsConfig (e.g. PMTWaveformSim 1 without the "
+                   "PMTWaveformSim tool)" % sorted(empty))
     for name in sorted(ref_trees - test_trees):
         report.add(YELLOW, "tree " + name, "CAUTION: present in the reference files but missing here — is that "
                    "expected? (analysers may not fill it by design)")

@@ -43,7 +43,7 @@ style, or quote them; `{...}` is YAML's mapping syntax.
 | `<wcsim/toolchain>.keep_logs`, `keep_failed_logs` | `false`, `false` | return logs (always on in test mode) |
 | `toolchain.tarball`, `source_dir`, `ta_folder`, `toolchain` | — | ToolAnalysis tarball and toolchain name |
 | `toolchain.version` | `v1.0` | output folder `MC_toolchain/<version>` |
-| `toolchain.config_hook` | `toolchain/hooks/config_GENIE.py` | per-run config writer, or `null` |
+| `toolchain.config_hook` | `toolchain/hooks/config_GENIE.py` | per-run config script, copied into the tarball (CC; NC: `toolchain/hooks/config_GENIE_NC.py`), or `tarball` to run the tarball's own `configfiles/<toolchain>/config_GENIE.py` |
 | `toolchain.output_file` | `tree.root` | renamed `MC_N.root` |
 | `toolchain.attach_lappd` | `false` | also give the job `wcsim_lappd_N.root` |
 | `toolchain.wcsim_input`, `lappd_input`, `genie_input`, `pot_input` | persistent defaults | overrides |

@@ -235,24 +235,57 @@ class WCSimWorker(Worker):
 
 
 class ToolchainWorker(Worker):
-    def prepare(self, fail=False):
+    TC = "BeamClusterAnalysisMC"
+    OWN = "import sys\nopen('LoadWCSimConfig', 'w').write('InputFile own_%s\\n' % sys.argv[1])\n"
+
+    def prepare(self, fail=False, own_hook=None, ship_hook=True):
+        """own_hook: text of the tarball's configfiles/<TC>/config_GENIE.py (None = absent)."""
         analyse = '#!/bin/bash\necho "Analyse $*"\n' + ('' if fail else 'echo tree > tree.root\n')
-        make_tar(os.path.join(self.inp, "TA.tar.gz"), {
-            "TA/Analyse": (analyse, True), "TA/Setup.sh": ("", False),
-            "TA/configfiles/PMTWaveformSim/ToolChainConfig": ("", False)})
-        self.give("toolchain/worker/toolchain_container.sh", "toolchain/hooks/config_GENIE.py")
+        files = {"TA/Analyse": (analyse, True), "TA/Setup.sh": ("", False),
+                 "TA/configfiles/%s/ToolChainConfig" % self.TC: ("", False)}
+        if own_hook is not None:
+            files["TA/configfiles/%s/config_GENIE.py" % self.TC] = (own_hook, False)
+        make_tar(os.path.join(self.inp, "TA.tar.gz"), files)
+        self.give("toolchain/worker/toolchain_container.sh")
+        if ship_hook:
+            self.give("toolchain/hooks/config_GENIE.py")
         self.give_file("wcsim_5.root")
         self.give_file("gntp.5.ghep.root")
-        return dict(tarball="TA.tar.gz", ta_folder="TA", toolchain="PMTWaveformSim", output_file="tree.root",
-                    attach_lappd=0, hook="config_GENIE.py", keep_logs=0, keep_failed_logs=1)
+        return dict(tarball="TA.tar.gz", ta_folder="TA", toolchain=self.TC, output_file="tree.root",
+                    attach_lappd=0, hook="config_GENIE.py" if ship_hook else "tarball", keep_logs=0,
+                    keep_failed_logs=1)
 
-    def test_success_and_hook(self):
-        proc = self.run_job("toolchain", **self.prepare())
+    def test_repo_hook_identical_to_tarball_copy(self):
+        with open(os.path.join(REPO, "toolchain/hooks/config_GENIE.py")) as handle:
+            proc = self.run_job("toolchain", **self.prepare(own_hook=handle.read()))
         self.assertEqual(proc.returncode, 0, proc.stdout[-3000:])
         self.assertIn("MC_5.root", self.outputs())
         self.assertNotIn("toolchain_5.log.gz", self.outputs())
+        self.assertIn("tarball's config_GENIE.py: identical", self.dummy())
         self.assertIn("InputFile wcsim_5.root", self.dummy())
+        self.assertIn("SimpleReco_fill 1", self.dummy())          # the CC tree maker flags
         self.assertTrue(os.path.exists(os.path.join(self.work, "TA", "wcsim_5.root")))
+
+    def test_repo_hook_replaces_different_tarball_copy(self):
+        proc = self.run_job("toolchain", **self.prepare(own_hook=self.OWN))
+        self.assertEqual(proc.returncode, 0, proc.stdout[-3000:])
+        self.assertIn("tarball's config_GENIE.py: different", self.dummy())
+        self.assertIn("InputFile wcsim_5.root", self.dummy())
+        self.assertNotIn("own_5", self.dummy())
+
+    def test_tarball_hook(self):
+        proc = self.run_job("toolchain", **self.prepare(own_hook=self.OWN, ship_hook=False))
+        self.assertEqual(proc.returncode, 0, proc.stdout[-3000:])
+        self.assertIn("config script: the tarball's configfiles/%s/config_GENIE.py" % self.TC, self.dummy())
+        self.assertIn("InputFile own_5", self.dummy())
+        self.assertIn("MC_5.root", self.outputs())
+
+    def test_missing_hook_stops_before_analyse(self):
+        proc = self.run_job("toolchain", **self.prepare(own_hook=None, ship_hook=False))
+        self.assertEqual(proc.returncode, 4)
+        self.assertIn("config script FAILED", self.dummy())
+        self.assertNotIn("MC_5.root", self.outputs())
+        self.assertFalse(os.path.exists(os.path.join(self.work, "TA", "tree.root")))
 
     def test_failure_returns_log_when_asked(self):
         proc = self.run_job("toolchain", **self.prepare(fail=True))

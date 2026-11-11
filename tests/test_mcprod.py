@@ -130,6 +130,23 @@ class StageTests(Fixture):
         self.assertTrue(any(p.endswith("Setup_GENIE.sh") for p in staged))
         self.assertEqual(attached, ["/t/G.tar.gz"])
 
+    def toolchain_config(self, hook):
+        return self.make_config("toolchain: {container: %s/images/toolanalysis:latest, tarball: /t/TA.tar.gz, "
+                                "ta_folder: TA, toolchain: TC, config_hook: %s}\n" % (self.tmp, hook))
+
+    def test_toolchain_config_script_modes(self):
+        staged, _ = stages.static_files(self.cfg, "toolchain")
+        self.assertIn(os.path.join(REPO, "toolchain/hooks/config_GENIE.py"), staged)
+        self.assertEqual(stages.job_args(self.cfg, "toolchain", 1, 2, False, "abc")["hook"], "config_GENIE.py")
+        nc = self.toolchain_config("toolchain/hooks/config_GENIE_NC.py")
+        self.assertIn(os.path.join(REPO, "toolchain/hooks/config_GENIE_NC.py"), stages.static_files(nc, "toolchain")[0])
+        own = self.toolchain_config("tarball")
+        self.assertEqual(own["toolchain"]["config_hook"], "tarball")
+        self.assertFalse(any("config_GENIE" in p for p in stages.static_files(own, "toolchain")[0]))
+        self.assertEqual(stages.job_args(own, "toolchain", 1, 2, False, "abc")["hook"], "tarball")
+        with self.assertRaises(config.ConfigError):
+            self.toolchain_config("null")
+
     def test_log_policy_args(self):
         genie = stages.job_args(self.cfg, "genie", 1, 1, False, "abc")
         wcsim = stages.job_args(self.cfg, "wcsim", 1, 2, False, "abc")

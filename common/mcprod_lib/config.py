@@ -73,6 +73,7 @@ PATH_KEYS = {"paths": ("scratch", "persistent", "flux_dir", "geometry", "contain
              "toolchain": ("tarball", "source_dir", "config_hook", "wcsim_input", "lappd_input",
                            "genie_input", "pot_input")}
 REPO_RELATIVE = {("paths", "geometry"), ("genie", "setup_script"), ("toolchain", "config_hook")}
+HOOK_FROM_TARBALL = "tarball"     # toolchain.config_hook: run configfiles/<toolchain>/config_GENIE.py from the tarball
 
 
 class ConfigError(Exception):
@@ -163,6 +164,9 @@ def _validate(cfg):
     if cfg["grid"]["grace_memory"]:
         parse_mb(cfg["grid"]["grace_memory"])
     parse_mb(cfg["test"]["memory_step"])
+    if not cfg["toolchain"]["config_hook"]:       # without it every job would read the same LoadWCSim InputFile
+        raise ConfigError("toolchain.config_hook must be a config script (default toolchain/hooks/config_GENIE.py) "
+                          "or '%s' (use configfiles/<toolchain>/config_GENIE.py from the tarball)" % HOOK_FROM_TARBALL)
 
 
 def _resolve(cfg):
@@ -176,7 +180,7 @@ def _resolve(cfg):
             if value is None:
                 continue
             value = _fmt(str(value), values, "%s.%s" % (section, key))
-            if (section, key) in REPO_RELATIVE and not os.path.isabs(value):
+            if (section, key) in REPO_RELATIVE and not os.path.isabs(value) and value != HOOK_FROM_TARBALL:
                 value = os.path.join(REPO, value)
             cfg[section][key] = value
     for stage, subdirs in cfg["layout"].items():
