@@ -159,15 +159,20 @@ def cmd_submit(cfg, a):
         return 1
     else:
         candidates = sorted(expected)
+    n_cleared = 0
     if a.clear_scratch and existing:
-        say("About to DELETE %d file(s) from %s, e.g. %s" % (len(existing), stages.scratch_dir(cfg, stage, test),
-                                                            [os.path.basename(p) for p in existing[:3]]))
-        if not ask("Type 'delete %d' to confirm:" % len(existing), "delete %d" % len(existing)):
-            say("aborted; nothing deleted")
-            return 1
-        for path in existing:
-            os.remove(path)
-        say("deleted %d file(s)" % len(existing))
+        say("%s %d file(s) from %s, e.g. %s" % ("dry run: would DELETE" if a.dry_run else "About to DELETE",
+                                                len(existing), stages.scratch_dir(cfg, stage, test),
+                                                [os.path.basename(p) for p in existing[:3]]))
+        if not a.dry_run:
+            if not ask("Type 'delete %d' to confirm:" % len(existing), "delete %d" % len(existing)):
+                say("aborted; nothing deleted")
+                return 1
+            for path in existing:
+                os.remove(path)
+            say("deleted %d file(s)" % len(existing))
+            n_cleared = len(existing)
+            done_runs = status.done(cfg, stage, test) & set(runs)    # what is left: recorded as n_done_before
         candidates = sorted(expected)
 
     if not a.dry_run and not a.skip_queue_check and candidates:
@@ -237,6 +242,8 @@ def cmd_submit(cfg, a):
     os.makedirs(outdir, exist_ok=True)
     camp = records.start_campaign(cfg, stage, test, kind, candidates, len(expected), len(done_runs), commit)
     camp["tarballs"] = tarballs
+    if n_cleared:
+        camp["cleared"] = n_cleared
     if hook_info:
         camp["config_hook"] = hook_info
     n_ok = n_fail = 0

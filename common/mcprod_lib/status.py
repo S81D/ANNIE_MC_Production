@@ -90,12 +90,15 @@ def failure_mix(cfg, stage, test, failed_runs):
 
 
 def campaign_table(cfg, stage, test, done_runs):
-    """[(kind, date, jobs, done_after, gain)] with done_after = done before + this campaign's runs now done."""
+    """[(kind, date, jobs, done_after, gain)] with done_after = done before + this campaign's runs now done.
+    A done run counts for the last campaign that submitted it (a recovery or a rerun after --clear-scratch)."""
+    camps = records.campaigns(cfg, stage, test)
+    submitted = [{j["run"] for j in records.jobs(camp) if j.get("jobid")} for camp in camps]
     rows = []
-    for camp in records.campaigns(cfg, stage, test):
-        submitted = {j["run"] for j in records.jobs(camp) if j.get("jobid")}
-        gained = len(submitted & done_runs)
-        rows.append((camp["kind"], camp["started"][:10], len(submitted), camp["n_done_before"] + gained, gained))
+    for i, camp in enumerate(camps):
+        later = set().union(*submitted[i + 1:])
+        gained = len((submitted[i] - later) & done_runs)
+        rows.append((camp["kind"], camp["started"][:10], len(submitted[i]), camp["n_done_before"] + gained, gained))
     return rows
 
 
@@ -124,6 +127,9 @@ def report(cfg, stage, test, queued=None):
     submitted = set()
     for camp in records.campaigns(cfg, stage, test):
         submitted |= {j["run"] for j in records.jobs(camp) if j.get("jobid")}
+        if camp.get("cleared"):
+            lines.append("  (%s %s deleted %d earlier scratch file(s) first: --clear-scratch)" % (
+                camp["kind"], camp["started"][:10], camp["cleared"]))
     failed = (submitted & exp) - done_runs - set(queued or {})
     if failed:
         lines.append("  failure mix of %d submitted runs without outputs:" % len(failed))

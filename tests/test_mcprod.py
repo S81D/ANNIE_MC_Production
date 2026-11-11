@@ -230,6 +230,41 @@ class StatusTests(Fixture):
         self.assertEqual(status.campaign_table(self.cfg, "genie", False, summary["done_runs"])[0][3:], (9, 9))
         self.assertEqual(records.next_kind(self.cfg, "genie", False, True), "recovery 1")
 
+    def add_campaign(self, kind, runs, n_done_before, **extra):
+        camp = records.start_campaign(self.cfg, "genie", False, kind, runs, 9, n_done_before, "abc")
+        camp["jobs_file"] = camp["jobs_file"].replace(".jsonl", "_%s.jsonl" % kind.replace(" ", "_"))  # same-second ids
+        camp.update(extra)
+        for r in runs:
+            records.record_job(camp, {"run": r, "seed": r, "jobid": "%d.0@jobsub01.fnal.gov" % r})
+        records.finish_campaign(self.cfg, "genie", False, camp, len(runs), 0)
+
+    def test_campaign_credit_goes_to_last_submitter(self):
+        runs = [0, 1, 2, 4, 5, 6, 7, 8, 9]
+        self.make_genie_outputs(runs)
+        self.add_campaign("initial", runs, 0)                 # run 9 failed here ...
+        self.add_campaign("recovery 1", [9], 8)               # ... and was rescued here
+        summary, _ = status.report(self.cfg, "genie", False)
+        table = status.campaign_table(self.cfg, "genie", False, summary["done_runs"])
+        self.assertEqual([row[3:] for row in table], [(8, 8), (9, 1)])
+
+    def test_rerun_after_clear_scratch(self):
+        runs = [0, 1, 2, 4, 5, 6, 7, 8, 9]
+        self.make_genie_outputs(runs)
+        self.add_campaign("initial", runs, 0)
+        self.add_campaign("rerun", runs, 0, cleared=27)      # the initial campaign's files were deleted first
+        summary, lines = status.report(self.cfg, "genie", False)
+        table = status.campaign_table(self.cfg, "genie", False, summary["done_runs"])
+        self.assertEqual([row[3:] for row in table], [(0, 0), (9, 9)])
+        self.assertTrue(any("deleted 27 earlier scratch file(s)" in l for l in lines))
+
+    def test_dry_run_never_clears_scratch(self):
+        d = stages.scratch_dir(self.cfg, "genie", True)
+        self.make_genie_outputs([0, 1], directory=d)
+        before = sorted(os.listdir(d))
+        rc = cli.main(["submit", self.cfg["_file"], "genie", "--test", "--dry-run", "--clear-scratch"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(sorted(os.listdir(d)), before)
+
     def test_failure_mix_reads_dummy(self):
         d = stages.scratch_dir(self.cfg, "genie")
         os.makedirs(d)
