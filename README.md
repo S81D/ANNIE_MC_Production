@@ -1,16 +1,94 @@
-# grid_wcsim
-Submitting WCSim grid jobs. Tailored for the MC tuning analysis involving AmBe neutrons, Michel electrons, and throughgoing muons. Also includes grid scripts for running MC toolchains over the WCSim (and GENIE) files.
+# ANNIE MC Production
 
-PLEASE modify all paths accordingly - or else they may dump into my user area :) 
+Grid production of ANNIE simulation samples on FermiGrid: **GENIE → anniedirt → WCSim → MC toolchain**.
+One YAML file describes a production; one command, `./mcprod`, submits, tracks, recovers, validates and
+transfers each stage.
 
-## Contents
+![Overview: a BNB neutrino interacts in the rock (GENIE); Geant4 carries its muon through the rock to the tank
+(anniedirt); the FMV, tank and MRD response is simulated (WCSim); ToolAnalysis turns the hits into ntuples (MC
+toolchain). Below: each stage's output file and the mcprod steps.](docs/img/production_flow.svg)
 
-- `AmBe_neutrons/` contains submission scripts for generating AmBe-like neutrons in WCSim. `send.py` will send jobs for 4 port positions (1, 5, 4, and 3, to match the 2024 AmBe calibration campaign) at all depths [-100:100cm, 50cm increments]. No AmBe housing is currently simulated. Neutron energy spectrum used is found in `AmBe_spectrum.dat`, pulled from Johann's work with RATPAC. 
-- `dirt_muons/` is intended to simulate Michel electrons. Rather than simulating an electron swarm, simulating the mother dirt muons (though computationally more expensive and less efficient) will capture the correct vertex and energy distribution of the daughter electrons (which is modulated due to effects of negative muon decay in a water cherenkov detector). As mentioned, this is far less efficient: only ~0.5% of the mother dirt muons simulated will yield a Michel candidate after selection cuts are applied. `dirt_muons_genie.txt` is a list containing the vertex, energy, and direction information of genie muons from the WORLD samples originating in the dirt that pass through the FMV + tank (and miss the MRD geometry). Future TODO: improve efficiency by only simulated muons that SURVIVE selection cuts. As the efficiency is so low, typically ~500k events are simulated (which has the unintended consequence of producing ~500k individual WCSim root files across all the jobs). This directory also contains a subdirectory (`MC_toolchain_dirt_muons/`) which has a set of grid scripts that will execute an MC toolchain over batches of the produced WCSim root files. These two workflows are my best solution (currently) to produce simulated Michel events (and the associated ntuples).
-- `genie_muons/` is meant for simulating high energy muons that originate in the rock upstream the detector, and pass through all 3 detector components (FMV + tank + MRD). These throughgoing muons can be used to tune the simulation for CC events. Like the dirt muons, `thru_genie_muons.txt` is a list containing the vertex, direction, and energy of genie WORLD muons passing through all 3 detector components. This simulation is far more efficient than the dirt muons + Michels.
-- `genie_samples/` contains grid scripts for running GENIE + flux files through WCSim on the grid. For now, it is optimised for GENIE world samples.
-- `MC_GENIE_toolchain/` is a collection of scripts that will execute a ToolAnalysis MC toolchain on the grid, loading in GENIE + WCSim files. It can be used for mass MC production, paired with WCSim samples produced from the same GENIE files.
-- `submit_MC_toolchain/` is similar to `MC_GENIE_toolchain/`, but is instead designed to execute a toolanalysis toolchain over the produced wcsim files (either throughgoing or the dirt muons). As there are ~hundreds of WCSim files for the MC tuning samples, running locally over them is not an option. This collection of scripts will read from, batch, and send jobs automatically based on what wcsim root files have been produced. TODO: modify for AmBe neutrons (although this shouldn't be too difficult).
-- `GENIE_G4Dirt_production/` contains grid scripts for the production of GENIEv3 (`GENIE_G4Dirt_production/genie/`) and ANNIEDirt (`GENIE_G4Dirt_production/anniedirt/`) simulation samples. A comprehensive README is provided within `GENIE_G4Dirt_production/`.
+## ⚠ Disk impact — read before running a production
 
-- `sourceme` must be included within the WCSim folder (and tarball) that is to be ran on the grid. It is needed to properly run the ./WCSim executable. 
+A full production (4000 runs) is large, and dCache space is shared by all of ANNIE. Measured with `du -sh`:
+
+| Stage | Size |
+|---|---|
+| GENIE (ghep + gst + logs) | ~100 GB |
+| anniedirt | ~2 GB |
+| WCSim, PMT files only | ~115 GB |
+| WCSim, PMT + LAPPD files (default) | ~170 GB |
+| MC toolchain (with GENIE + flux weights) | ~120 GB |
+| **Full chain** | **~0.4 TB**, plus a scratch copy until transfer |
+
+Run the 10-job test chain first, transfer promptly, and coordinate with the collaboration before a full production.
+
+## Quick start (ANNIE gpvm)
+
+```
+kinit $USER@FNAL.GOV
+htgettoken -a htvaultprod.fnal.gov -i annie
+git clone https://github.com/S81D/ANNIE_MC_Production.git /exp/annie/app/users/$USER/ANNIE_MC_Production
+cd /exp/annie/app/users/$USER/ANNIE_MC_Production
+cp productions/example_world.yaml productions/my_sample.yaml
+./mcprod check productions/my_sample.yaml
+```
+
+Edit `productions/my_sample.yaml` (name, runs, WCSim and ToolAnalysis sources) before `check`.
+
+**MC toolchain users:** the toolchain stage sets up the tree maker (PhaseIITreeMaker) with a Python config script
+that is copied into your ToolAnalysis tarball and run in every job. Two versions are provided:
+`toolchain/hooks/config_GENIE.py` (CC, the default) and `toolchain/hooks/config_GENIE_NC.py` (NC). Edit the one you
+use to reflect your workflow, or set `toolchain.config_hook: tarball` to run the `config_GENIE.py` inside your
+tarball's toolchain folder instead. Details: [toolchain/README.md](toolchain/README.md).
+
+Then follow
+[docs/workflow.md](docs/workflow.md): test every stage, then run the full production stage by stage.
+**Launch a stage — test or full — only when the previous stage is DONE.** `mcprod` enforces this.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `./mcprod check X.yaml` | validate the config, inputs, images, spline, auth |
+| `./mcprod tarball X.yaml wcsim\|toolchain\|genie` | build the software tarball (+ provenance file) |
+| `./mcprod submit X.yaml STAGE [--test] [--dry-run] [--missing]` | submit jobs (`--missing` = recovery campaign) |
+| `./mcprod status X.yaml STAGE [--test]` | completeness, campaign history, failures, queue |
+| `./mcprod validate X.yaml STAGE` | test jobs vs reference files: GREEN / YELLOW / RED |
+| `./mcprod estimate X.yaml STAGE` | memory / disk / walltime requests from the test jobs |
+| `./mcprod verify X.yaml STAGE` · `purge` | find (and delete, with confirmation) broken scratch files |
+| `./mcprod copy X.yaml STAGE` | scratch → persistent, size-verified; writes the POT summary |
+| `./mcprod pot X.yaml genie\|toolchain` | POT summary on its own |
+
+Long steps (submitting or copying ~4000 files) take hours: run them in `screen` (docs/workflow.md).
+
+## Layout
+
+| Path | Contents |
+|---|---|
+| `productions/` | one YAML per production (commit yours: it is the record of what was run) |
+| `genie/ anniedirt/ wcsim/ toolchain/` | stage README + worker scripts |
+| `common/` | geometry (`annie_v07.gdml`), shared worker functions, `mcprod` library |
+| `helpers/` | broken-file finder/deleter, POT summer, POT from ghep files |
+| `validation/` | `validate.py` (used by `mcprod validate`) |
+| `docs/` | workflow, configuration reference, troubleshooting, overview figure (`img/`) |
+| `tests/` | `python3 -m unittest discover tests` (no grid needed) |
+| `legacy/` | frozen MC-tuning workflows (AmBe, Michel, through-going muons) |
+| `records/` | local bookkeeping written by `mcprod` (not in git) |
+
+Requirements: an ANNIE gpvm (jobsub_lite, singularity, system `python3` with PyYAML) and an ANNIE grid account.
+
+## AI assistance
+
+The grid scripts for every stage were written and used for ANNIE MC production before any AI assistance.
+AI (Claude, Anthropic) was used, under Steven Doran's direction and review, to compress and streamline them
+into one configuration-driven workflow, with shared worker code, tests and documentation. Physics settings
+(GENIE tune, flux, geometry, events per job) were not changed. The pre-AI version is tagged `pre-refactor`.
+
+**Validation.** The refactored workflow was tested on FermiGrid in November 2026 (production
+`refactor_validation_v2`). A 10-job test of each of the four stages was GREEN in `mcprod validate` against reference
+files from earlier ANNIE productions: GENIE POT per run, event content, vertex positions and times; anniedirt and
+WCSim events per file; toolchain tree entries within 20 % of the references and one trigger per WCSim event.
+`mcprod verify` found no broken files among the toolchain test outputs. Unit tests in `tests/` cover submission,
+bookkeeping and the worker scripts. Not yet exercised: a full 4000-run production, `copy` and `pot` on real output,
+tank-volume GENIE and offsite sites.

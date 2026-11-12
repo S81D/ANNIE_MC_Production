@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+"""ANNIE MC production command (README.md). Uses the gpvm's system python3, which has PyYAML."""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "common"))
+from mcprod_lib.cli import main  # noqa: E402
+
+sys.exit(main())

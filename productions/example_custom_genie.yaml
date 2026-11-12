@@ -1,0 +1,28 @@
+# Worked example: your own GENIE build (here S81D/GENIE-v3-O16) instead of the image's GENIE.
+# Only the genie section differs from example_world.yaml.
+
+production:
+  name: example_custom_genie_v1
+  user: null
+
+runs:
+  range: [0, 3999]
+
+genie:
+  software: tarball
+  source_dir: /exp/annie/app/users/{user}/GENIE_production    # folder that contains GENIE-v3-O16/
+  tarball_folder: GENIE-v3-O16                                 # top folder inside the tarball
+  tarball: /pnfs/annie/scratch/users/{user}/tarballs/GENIE-v3-O16.tar.gz
+  setup_script: genie/worker/Setup_GENIE.sh                    # environment for the build; edit for yours
+  volume: world
+  resources: {memory: 4000MB, disk: 10GB, lifetime: 4h}
+
+wcsim:
+  source_dir: /exp/annie/app/users/{user}/WCSim_build
+  tarball: /pnfs/annie/scratch/users/{user}/tarballs/{production}_WCSim.tar.gz
+
+toolchain:
+  source_dir: /exp/annie/app/users/{user}
+  ta_folder: MyToolAnalysis
+  toolchain: BeamClusterAnalysisMC
+  tarball: /pnfs/annie/scratch/users/{user}/tarballs/{production}_ToolAnalysis.tar.gz
